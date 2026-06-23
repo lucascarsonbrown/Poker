@@ -101,12 +101,13 @@ class PokerEnvironment:
             self.BIG_BLIND = int(input("Enter big blind: "))
             self.SMALL_BLIND = self.BIG_BLIND // 2
 
-        # Reset players
+        # Reset players — preserve balances earned in previous rounds
         for player in self.players:
             player.playing_current_round = True
             player.current_bet = 0
             player.clear_hand()
-            player.player_balance = self.starting_balance
+            if player.player_balance == 0:
+                player.player_balance = self.starting_balance
 
         # Reset game state
         self.deck.reset_deck()
@@ -355,7 +356,7 @@ class PokerEnvironment:
     def _distribute_pot(self) -> None:
         """Distribute pot to winner(s)."""
         winners = [p for p in self.players if p.playing_current_round]
-        winnings = self.total_pot_balance / len(winners)
+        winnings = self.total_pot_balance // len(winners)
 
         for player in winners:
             player.player_balance += winnings

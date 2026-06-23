@@ -135,7 +135,7 @@ class EquityAIPlayer(AIPlayer):
         elif action == "c":
             self.current_bet = observed_env.get_highest_current_bet()
         elif action.startswith("b"):
-            self.current_bet = int(action[1:])
+            self.current_bet = int(float(action[1:]))
 
 
 class CFRAIPlayer(AIPlayer):
@@ -310,7 +310,7 @@ class CFRAIPlayer(AIPlayer):
         elif action == "c":
             self.current_bet = observed_env.get_highest_current_bet()
         elif action.startswith("b"):
-            self.current_bet = int(action[1:])
+            self.current_bet = int(float(action[1:]))
 
     def _abstract_preflop_history(self, history: List[str], big_blind: int) -> List[str]:
         """Abstract preflop betting history."""
@@ -434,9 +434,8 @@ class CFRAIPlayer(AIPlayer):
         """Build infoset key for preflop."""
         DISCRETE_ACTIONS = {"k", "bMIN", "bMID", "bMAX", "c", "f"}
 
-        # Get player's cards (assume we're player based on history length)
-        player_idx = len(abstracted_history) % 2
-        cards = abstracted_history[player_idx] if player_idx < len(abstracted_history) else ""
+        # AI is always player 1 — its hole cards are always at index 1 in history
+        cards = abstracted_history[1] if len(abstracted_history) > 1 else ""
 
         infoset = [str(get_preflop_cluster_id(cards))]
         for action in abstracted_history:
