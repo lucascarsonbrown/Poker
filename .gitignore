@@ -1,2 +1,14 @@
 CLAUDE.md
 .claude/
+GOAL.md
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Training data and vision weights — hundreds of MB to multiple GB
+cv/data/
+models/*.pt
+models/cards/
+models/chips/

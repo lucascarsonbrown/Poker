@@ -1,6 +1,44 @@
 # Poker AI
 
-Texas Hold'em AI using Counterfactual Regret Minimization (CFR) to compute Nash equilibrium strategies.
+Texas Hold'em AI using Counterfactual Regret Minimization (CFR) to compute
+Nash equilibrium strategies, plus a playable Streamlit table and a YOLO vision
+layer that reads cards and chips off a photo of a real table.
+
+## What CFR is doing here
+
+Poker is an imperfect-information game: you cannot see your opponent's cards,
+so there is no "best move" in the minimax sense — only a best *distribution*
+over moves. The solution concept is a Nash equilibrium, a strategy that cannot
+be exploited no matter what the opponent does.
+
+Counterfactual Regret Minimization finds one by self-play. It repeatedly walks
+the game tree and, at each decision point, accumulates *regret* for every
+action: how much better off it would have been having always played that action
+instead of what it actually did. The next iteration's strategy is proportional
+to the positive regret. Averaged over many iterations, this provably converges
+to equilibrium.
+
+The practical obstacle is that Hold'em has ~10^160 decision points, far too
+many to store. So decision points are grouped into **information set
+abstractions** — hands that should be played the same way share a bucket
+(`src/ai/abstraction.py`), keyed on equity rather than exact cards. The trained
+output is a mapping from abstracted information set to action distribution,
+stored as a `.joblib` file.
+
+`examples/rps.py` runs the same algorithm on rock-paper-scissors, where the
+equilibrium is known to be uniform — a sanity check that the CFR
+implementation itself is correct before trusting it on a game whose answer
+nobody knows.
+
+## Play against it
+
+```bash
+streamlit run app.py
+```
+
+A full Texas Hold'em table in the browser: your hole cards, the board, a
+betting interface, live equity readout, and an action log showing what the AI
+did and why.
 
 ## Installation
 
@@ -76,11 +114,25 @@ See [training/README.md](training/README.md) for all options and how training wo
 
 ```text
 Poker/
+├── app.py        # Streamlit table — play against the AI
 ├── src/          # Runtime library (calculator, environment, evaluator, AI)
-├── training/     # CFR training scripts and base algorithm
+├── training/     # CFR training scripts and the base algorithm
+├── cv/           # YOLO card and chip detection
 ├── examples/     # Standalone demos (RPS as a CFR sanity check)
 └── models/       # Trained strategy files (.joblib)
 ```
+
+## Computer vision
+
+`cv/` trains YOLOv8 detectors to read a physical table: one model for playing
+cards, one for chip stacks. `cv/train_cards.py` and `cv/train.py` handle
+training, `cv/detect.py` runs inference on an image, and `cv/server.py` exposes
+detection over HTTP so the game loop can consume a real table state instead of
+typed input.
+
+Training data and trained weights are not committed — the datasets run to
+several GB and the weights to a few hundred MB. The training scripts point at
+standard YOLOv8-format datasets and will fetch or expect them locally.
 
 ## Card Format
 
