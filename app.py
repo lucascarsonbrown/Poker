@@ -3,7 +3,7 @@ Streamlit poker app — play Texas Hold'em against the CFR AI.
 Run with: streamlit run app.py
 """
 
-import time
+from pathlib import Path
 import streamlit as st
 import pandas as pd
 from src.environment import PokerEnvironment
@@ -16,7 +16,7 @@ st.markdown("""
 <style>
     .stApp { background-color: #0d1f0d; }
     section[data-testid="stSidebar"] { display: none; }
-    header[data-testid="stHeader"] { display: none; }
+
     .block-container { padding-top: 2rem; }
     .log-entry { font-size: 0.85rem; padding: 3px 0; border-bottom: 1px solid #1e3a1e; }
     .badge {
@@ -71,7 +71,7 @@ def init_state():
     if "env" not in st.session_state:
         env = PokerEnvironment()
         env.add_player()
-        env.add_ai_player("models")
+        env.add_ai_player(str(Path(__file__).parent / "models"))
         st.session_state.env = env
 
     defaults = {
@@ -294,6 +294,45 @@ def player_badges(idx: int) -> str:
         badges += '<span class="badge badge-bb">BB</span>'
     return badges
 
+st.title("Poker AI")
+st.caption("Explore a hand or play heads-up against the AI. Demo chips only.")
+st.link_button("View source on GitHub", "https://github.com/lucascarsonbrown/Poker")
+mode = st.radio("Mode", ["Play against AI", "Hand calculator"], horizontal=True)
+
+if mode == "Hand calculator":
+    st.subheader("Try a hand")
+    st.write("Choose your cards and an optional board to estimate your chance of winning or tying against one random opponent.")
+    deck = [rank + suit for rank in "AKQJT98765432" for suit in "shdc"]
+    def card_label(card):
+        return RANK_DISPLAY.get(card[0], card[0]) + SUIT_SYMBOL[card[1]]
+    with st.form("calculator"):
+        hole = st.multiselect("Your two cards", deck, default=["Ah", "Kd"], max_selections=2, format_func=card_label)
+        board = st.multiselect("Community cards (0, 3, 4, or 5)", deck, max_selections=5, format_func=card_label)
+        simulations = st.select_slider("Simulations", options=[500, 2000, 5000], value=2000)
+        submitted = st.form_submit_button("Calculate", type="primary")
+    if submitted:
+        if len(hole) != 2:
+            st.error("Choose exactly two hole cards.")
+        elif len(board) not in (0, 3, 4, 5):
+            st.error("Choose no board cards, or a flop (3), turn (4), or river (5).")
+        elif len(set(hole + board)) != len(hole + board):
+            st.error("Each card can appear only once. Your hand and board overlap.")
+        else:
+            with st.spinner("Simulating hands…"):
+                probability = calculate_equity(hole, board, n=simulations)
+            st.markdown(cards_html(hole), unsafe_allow_html=True)
+            if board:
+                st.markdown(cards_html(board), unsafe_allow_html=True)
+            st.metric("Win or tie probability", f"{probability:.1%}")
+            st.progress(probability)
+            st.caption(f"Monte Carlo estimate from {simulations:,} hands. The current calculator counts ties as wins; this is not split-pot equity. Results vary between runs and do not model the AI's range.")
+    st.stop()
+
+st.caption("Blinds: 100 / 200 · Starting stack: 2,500 · Empty stacks refill on the next hand. The engine uses simplified betting rules.")
+if st.button("Reset session"):
+    st.session_state.clear()
+    st.rerun()
+
 # ── Layout ────────────────────────────────────────────────────────────────────
 left, right = st.columns([2, 1])
 
@@ -316,10 +355,9 @@ with left:
         pot = state["pot"]
         p_bet  = int(state["players"][0]["current_bet"])
         ai_bet = int(state["players"][1]["current_bet"])
-        # Show total chips (stack + already-committed bet) so the number
-        # doesn't jump when blinds are posted
-        p_bal  = int(state["players"][0]["balance"]) + p_bet
-        ai_bal = int(state["players"][1]["balance"]) + ai_bet
+        # Bets are deducted by the engine at the end of each street.
+        p_bal  = int(state["players"][0]["balance"])
+        ai_bal = int(state["players"][1]["balance"])
 
         show_ai_cards = phase == "showdown" and env.showdown
 
@@ -382,7 +420,7 @@ with left:
             bar_color = "#2ecc71" if eq_pct >= 50 else "#e74c3c"
             st.markdown(
                 f'<div style="font-size:0.85rem;color:#aaa;margin-bottom:2px;">'
-                f'Win probability: <b style="color:{bar_color}">{eq_pct:.0f}%</b></div>',
+                f'Win or tie vs random hand: <b style="color:{bar_color}">{eq_pct:.0f}%</b></div>',
                 unsafe_allow_html=True,
             )
             st.progress(equity)
@@ -417,13 +455,13 @@ with left:
                 if cols[c].button(f"📞 Call ${to_call:,}", use_container_width=True):
                     apply_action("c"); st.rerun()
                 c += 1
-            if cols[c].button(f"⬆️ Raise ${small:,}", use_container_width=True):
+            if cols[c].button(f"⬆️ Raise ${min(small, balance):,}", use_container_width=True, disabled=balance <= ai_bet):
                 apply_action(f"b{min(small, balance)}"); st.rerun()
             c += 1
-            if cols[c].button(f"💣 Pot ${min(pot, balance):,}", use_container_width=True):
-                apply_action(f"b{min(pot, balance)}"); st.rerun()
+            if cols[c].button(f"💣 Pot ${min(max(pot, min_raise), balance):,}", use_container_width=True, disabled=balance <= ai_bet):
+                apply_action(f"b{min(max(pot, min_raise), balance)}"); st.rerun()
             c += 1
-            if cols[c].button(f"🚀 All-in ${balance:,}", use_container_width=True):
+            if cols[c].button(f"🚀 All-in ${balance:,}", use_container_width=True, disabled=balance <= ai_bet):
                 apply_action(f"b{balance}"); st.rerun()
 
             if "f" in valid:
@@ -433,7 +471,7 @@ with left:
     # ── New round button ──────────────────────────────────────────────────────
     st.markdown("<div style='margin:20px 0 8px;'></div>", unsafe_allow_html=True)
     label = "🃏  Deal Cards" if phase == "lobby" else "🔄  Next Round"
-    if st.button(label, type="primary", use_container_width=False):
+    if st.button(label, type="primary", use_container_width=False, disabled=phase == "playing"):
         start_round()
         st.rerun()
 
@@ -452,7 +490,7 @@ with right:
         df = pd.DataFrame(st.session_state.balance_history)
         st.line_chart(df.set_index("Round")["Stack"], color="#2ecc71")
         latest = st.session_state.balance_history[-1]["Stack"]
-        starting = st.session_state.balance_history[0]["Stack"]
+        starting = env.starting_balance
         delta  = latest - starting
         sign   = "+" if delta >= 0 else ""
         col1, col2 = st.columns(2)

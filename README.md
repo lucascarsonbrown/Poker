@@ -60,9 +60,35 @@ iterations.
 streamlit run app.py
 ```
 
-A full Texas Hold'em table in the browser: your hole cards, the board, a
-betting interface, live equity readout, and an action log showing what the AI
-did and why.
+A heads-up Texas Hold'em demo with hole cards, a board, betting controls,
+action log, and stack history. Switch to **Hand calculator** to select cards
+and run a Monte Carlo estimate against a random opponent. Each browser session
+has its own game; chips have no monetary value.
+
+The engine uses simplified betting rules. Probability readouts count ties as
+wins, so they show **win or tie probability**, not split-pot equity. Empty
+stacks refill on the next hand; **Reset session** starts fresh.
+
+### Publish the demo
+
+Streamlit Community Cloud hosts Python apps at a public `*.streamlit.app` URL.
+GitHub hosts this source code; GitHub Pages cannot run the Python app.
+
+1. Sign in to [Streamlit Community Cloud](https://share.streamlit.io/) with GitHub.
+2. Choose **Create app**, then select `lucascarsonbrown/Poker`, branch `main`,
+   and entrypoint `app.py`.
+3. In advanced settings, choose Python **3.11**. Optionally request an available
+   subdomain such as `lucas-poker-ai`, then deploy. No app secrets are needed.
+4. Open the assigned URL and try both modes. Copy that actual URL into a
+   `Play the live demo` link near the top of this README and the repository's
+   **About → Website** field.
+
+The hosting service installs `requirements.txt` and reads `.streamlit/config.toml`.
+Both strategy models are tracked in this repo. Future pushes to the deployed
+branch update the app. See the [official deployment guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy).
+
+No live URL is listed yet: the app must first be deployed in the owner's
+Streamlit account.
 
 ## Installation
 
