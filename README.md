@@ -1,5 +1,7 @@
 # Poker AI
 
+**[Play the live demo](https://adxezq5hym7s2n7mururqg.streamlit.app/)** — play against the AI or try the hand calculator.
+
 Texas Hold'em AI using Counterfactual Regret Minimization (CFR) to compute
 Nash equilibrium strategies, plus a playable Streamlit table and a YOLO vision
 layer that reads cards and chips off a photo of a real table.
@@ -87,8 +89,7 @@ The hosting service installs `requirements.txt` and reads `.streamlit/config.tom
 Both strategy models are tracked in this repo. Future pushes to the deployed
 branch update the app. See the [official deployment guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy).
 
-No live URL is listed yet: the app must first be deployed in the owner's
-Streamlit account.
+The current demo is hosted on [Streamlit Community Cloud](https://adxezq5hym7s2n7mururqg.streamlit.app/).
 
 ## Installation
 
